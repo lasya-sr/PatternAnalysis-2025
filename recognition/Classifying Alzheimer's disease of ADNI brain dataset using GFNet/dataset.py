@@ -42,7 +42,7 @@ def build_transforms(image_size: Tuple[int, int] = DEFAULT_IMAGE_SIZE,
     """
     common = [
         transforms.Resize(image_size),
-        transforms.Grayscale(),        # single channel
+        transforms.Grayscale(num_output_channels=1),  #1-channel grayscale       
         transforms.ToTensor(),
         transforms.Normalize((mean,), (std,)),
     ]
@@ -133,3 +133,4 @@ def visualize_batch(loader: DataLoader, max_images: int = 32):
         batch = batch[:max_images]
     grid = make_grid(batch, nrow=8, padding=2)
     return grid
+
