@@ -33,6 +33,8 @@ def resolve_data_root() -> Path:
     if rangpur.exists():
         return rangpur
 
+    raise FileNotFoundError("DATA_ROOT not found. Set DATA_ROOT env var or ensure the default path exists.")
+
 def build_transforms(image_size: Tuple[int, int] = DEFAULT_IMAGE_SIZE,
                      mean: float = MEAN, std: float = STD,
                      train: bool = True) -> transforms.Compose:
@@ -133,4 +135,5 @@ def visualize_batch(loader: DataLoader, max_images: int = 32):
         batch = batch[:max_images]
     grid = make_grid(batch, nrow=8, padding=2)
     return grid
+
 
