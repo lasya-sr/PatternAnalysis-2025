@@ -7,7 +7,7 @@ import torch.fft
 from timm.models.layers import DropPath, trunc_normal_  
 
 class FeedForward(nn.Module):
-    """Two-layer MLP with GELU """
+    """Two-layer MLP with GELU and dropout"""
     def __init__(self, in_features, hidden_features=None, out_features=None,
                  act_layer=nn.GELU, drop=0.4):
         super().__init__()
@@ -75,9 +75,9 @@ class GFBlock(nn.Module):
         x = x + self.drop_path(self.ffn(self.norm2(self.filter(self.norm1(x)))))
         return x
 
-# Patch pprojector
+# Patch projector
 class PatchProjector(nn.Module):
-    """Image → patch embeddings via strided conv (ViT-style)."""
+    """Image to patch embeddings via strided conv."""
     def __init__(self, img_size=256, patch_size=16, in_channels=1, embed_dim=512):
         super().__init__()
         self.img_size   = (img_size, img_size)
@@ -94,11 +94,11 @@ class PatchProjector(nn.Module):
         x = self.proj(x).flatten(2).transpose(1, 2)  # (B, N, D)
         return x
 
-# GFNet main functoin
+# GFNet main function
 class GFNet(nn.Module):
     """
     GFNet backbone for AD vs NC (2 classes).
-    Assumes 256×256 single-channel input (grayscale MRI slices).
+    Assumes 256×256 single-channel input grayscale MRI slices.
     """
     def __init__(self, img_size=256, patch_size=16, embed_dim=512, num_classes=2,
                  in_channels=1, drop_rate=0.5, depth=8, mlp_ratio=4.,
@@ -162,3 +162,4 @@ class GFNet(nn.Module):
         x = self.forward_features(x)
         x = self.head(x)
         return x
+
