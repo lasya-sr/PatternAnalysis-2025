@@ -1,6 +1,6 @@
 """
-Training script for GFNet on ADNI brain dataset for Alzheimer's disease classification.
-
+Training, validation and Testing script for the model.
+Uses GFNet from modules.py and data loaders from dataset.py
 """
 
 import os
@@ -10,30 +10,29 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 from functools import partial
-
-from modules import *            # expects GFNet available here
-from dataset import make_train_loaders, make_test_loader
+from modules import *            
+from dataset import train_val_loaders, test_loader
 from sklearn import metrics
 from timm.scheduler import create_scheduler
 from types import SimpleNamespace
 
 # hyperparameters
+batch_size    = 32
 num_epochs   = 10
 learning_rate = 0.0005
-batch_size    = 32
 
 # setup
 def setup_run():
     """Set device and assets directory (plots, confusion matrix)."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    assets = "assets"
-    if not os.path.exists(assets):
-        os.makedirs(assets)
-    return device, assets
+    output_dir = "outputs"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    return device, output_dir
 
 # training
-def train_loop(device, asset_dir, model, criterion, optimizer, scheduler, loader_train, loader_val):
-    print("Start Training ...")
+def train_loop(device, output_dir, model, criterion, optimizer, scheduler, loader_train, loader_val):
+    print("Training started ...")
     start_time = time.time()
 
     model.train()
@@ -59,7 +58,7 @@ def train_loop(device, asset_dir, model, criterion, optimizer, scheduler, loader
         tr_losses.append(train_loss)
 
         # validation
-        val_loss, val_acc = eval_loop(device, model, criterion, loader_val)
+        val_loss, val_acc = validate(device, model, criterion, loader_val)
         val_losses.append(val_loss)
         val_accs.append(val_acc)
 
@@ -67,37 +66,38 @@ def train_loop(device, asset_dir, model, criterion, optimizer, scheduler, loader
         scheduler.step(epoch)
 
         print(f"Epoch [{epoch+1}/{num_epochs}] "
-              f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}")
+              f"Training Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}")
 
     dur = time.time() - start_time
     print(f"Training completed in: {dur:.2f} seconds")
 
     # plots
     plt.figure(figsize=(10, 5))
-    plt.plot(tr_losses, label="Training Loss")
-    plt.plot(val_losses, label="Validation Loss")
-    plt.title("Training and Validation Loss")
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
+    plt.plot(tr_losses, label="Training Loss", color='purple')
+    plt.plot(val_losses, label="Validation Loss", color='orange')
+    plt.title("Training and Validation Loss Plot")
+    plt.xlabel("epochs")
+    plt.ylabel("loss")
     plt.legend()
-    loss_plot_path = os.path.join(asset_dir, "training_and_validation_losses.png")
+    plt.savefig(os.path.join(output_dir, "training_and_validation_losses.png"))
+    loss_plot_path = os.path.join(output_dir, "training_and_validation_losses.png")
     plt.savefig(loss_plot_path)
     plt.show()
     plt.close()
 
     plt.figure(figsize=(10, 5))
-    plt.plot(val_accs, label="Validation Accuracy")
-    plt.title("Validation Accuracy")
-    plt.xlabel("Epochs")
-    plt.ylabel("Accuracy")
+    plt.plot(val_accs, label="Validation Accuracy", color='green')
+    plt.title("Validation Accuracy Plot")
+    plt.xlabel("epochs")
+    plt.ylabel("accuracy")
     plt.legend()
-    acc_plot_path = os.path.join(asset_dir, "validation_accuracies.png")
+    acc_plot_path = os.path.join(output_dir, "validation_accuracies.png")
     plt.savefig(acc_plot_path)
     plt.show()
     plt.close()
 
 # validation
-def eval_loop(device, model, criterion, loader_val):
+def validate(device, model, criterion, loader_val):
     val_loss = 0.0
     correct, total = 0, 0
 
@@ -120,8 +120,8 @@ def eval_loop(device, model, criterion, loader_val):
     return val_loss, val_acc
 
 # testing
-def test_loop(device, asset_dir, model, criterion, loader_test):
-    print("Start Testing ...")
+def test_loop(device, output_dir, model, criterion, loader_test):
+    print("Testing Starting ...")
     start_time = time.time()
 
     model.eval()
@@ -149,16 +149,16 @@ def test_loop(device, asset_dir, model, criterion, loader_test):
 
     dur = time.time() - start_time
     print(f"Testing completed in: {dur:.2f} seconds")
-    print(f"Test Loss: {test_loss:.4f} | Test Accuracy: {test_acc:.4f}")
+    print(f"Testing loss: {test_loss:.4f} | Test accuracy: {test_acc:.4f}")
 
     # confusion matrix
     cm = metrics.confusion_matrix(all_labels, all_preds)
     disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm)
 
-    plt.figure(figsize=(8, 8))
-    disp.plot(cmap=plt.cm.Blues)
-    plt.title("Confusion Matrix")
-    cm_path = os.path.join(asset_dir, "confusion_matrix.png")
+    plt.figure(figsize=(7,7))
+    disp.plot(cmap="viridis", values_format='d')
+    plt.title("Confusion Matrix", fontsize=14, fontweight='bold', pad=10)
+    cm_path = os.path.join(output_dir, "confusion_matrix.png")
     plt.savefig(cm_path)
     plt.show()
     plt.close()
@@ -168,11 +168,11 @@ def test_loop(device, asset_dir, model, criterion, loader_test):
 # main
 def main():
     # setup
-    device, asset_dir = setup_run()
+    device, output_dir = setup_run()
 
     # data
-    loader_train, loader_val = make_train_loaders(batch_size=batch_size)
-    loader_test, _ = make_test_loader(batch_size=batch_size)
+    loader_train, loader_val = train_val_loaders(batch_size=batch_size)
+    loader_test, _ = test_loader(batch_size=batch_size)
 
     # model (GFNet from modules.py)
     model = GFNet(
@@ -203,7 +203,7 @@ def main():
     scheduler, _ = create_scheduler(args, optimizer)
 
     # train
-    train_loop(device, asset_dir, model, criterion, optimizer, scheduler, loader_train, loader_val)
+    train_loop(device, output_dir, model, criterion, optimizer, scheduler, loader_train, loader_val)
 
     # Making sure a Drive folder exists
     ckpt_dir = "/content/drive/MyDrive/checkpoints_gfnet"
@@ -212,15 +212,10 @@ def main():
     # Save the final weights to Drive
     model_save_path = os.path.join(ckpt_dir, "gfnet_last.pth")
     torch.save(model.state_dict(), model_save_path)
-    print(f"Model saved to {model_save_path}")
-
-    # save
-    #model_save_path = "trained_model.pth"
-    #torch.save(model.state_dict(), model_save_path)
-    #print(f"Model saved to {model_save_path}")
+    print(f"Model is saved to: {model_save_path}")
 
     # test after saving
-    test_loop(device, asset_dir, model, criterion, loader_test)
+    test_loop(device, output_dir, model, criterion, loader_test)
 
 if __name__ == "__main__":
     main()
