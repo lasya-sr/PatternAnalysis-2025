@@ -3,11 +3,10 @@ This script does the preprocessing and loading the data
 
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
 from typing import Tuple, Dict, List
 import random
-
 import torch
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
@@ -92,6 +91,10 @@ def train_val_loaders(batch_size: int,
     # Loading with train transforms
     base = _make_imagefolder(train_dir, train=True)
 
+    # Printing basic info about our dataset
+    print(f"Found classes: {base.class_to_idx}")
+    print(f"Total images in train directory: {len(base)}")
+
     # Splits on targets
     targets = [y for _, y in base.samples]  
     train_idx, val_idx = _stratified_indices(targets, train_ratio, seed=seed)
@@ -107,9 +110,9 @@ def train_val_loaders(batch_size: int,
                             shuffle=False, num_workers=num_workers, pin_memory=True)
 
     # Print basic info
-    print(f"[Data] Root: {data_root}")
-    print(f"[Split] Train: {len(train_idx)} | Val: {len(val_idx)}")
-    print(f"[Classes] {base.class_to_idx}")
+    print(f"Number of training images: {len(train_ds)}")
+    print(f"Number of validation images: {len(val_ds)}")
+    print(f"Training ratio: {train_ratio:.2f} | Validation ratio: {1 - train_ratio:.2f}")
 
     return train_loader, val_loader, base.class_to_idx
 
@@ -122,11 +125,15 @@ def test_loader(batch_size: int, num_workers: int = 2):
     test_dir = data_root / "test"
     test_ds = _make_imagefolder(test_dir, train=False)
 
+    print(f"Found classes: {test_ds.class_to_idx}")
+    print(f"Total images in train directory: {len(test_ds)}")
+
     loader = DataLoader(test_ds, batch_size=batch_size,
                         shuffle=False, num_workers=num_workers, pin_memory=True)
 
     print(f"[Data] Root: {data_root}")
-    print(f"[Test]  N={len(test_ds)} | Classes: {test_ds.class_to_idx}")
+    print(f"Number of testing images: {len(test_ds)}")
+    
     return loader, test_ds
 
 def visualize_batch(loader: DataLoader, max_images: int = 32):
@@ -135,5 +142,4 @@ def visualize_batch(loader: DataLoader, max_images: int = 32):
         batch = batch[:max_images]
     grid = make_grid(batch, nrow=8, padding=2)
     return grid
-
 
