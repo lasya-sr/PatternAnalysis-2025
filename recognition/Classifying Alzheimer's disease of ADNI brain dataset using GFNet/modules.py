@@ -1,12 +1,11 @@
 import math
 from functools import partial
-
 import torch
 import torch.nn as nn
 import torch.fft
-from timm.models.layers import DropPath, trunc_normal_  
+from timm.layers import DropPath, trunc_normal_  
 
-class FeedForward(nn.Module):
+class Mlp(nn.Module):
     """Two-layer MLP with GELU and dropout"""
     def __init__(self, in_features, hidden_features=None, out_features=None,
                  act_layer=nn.GELU, drop=0.4):
@@ -68,7 +67,7 @@ class GFBlock(nn.Module):
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         hidden = int(dim * mlp_ratio)
-        self.ffn = FeedForward(in_features=dim, hidden_features=hidden,
+        self.ffn = MLP(in_features=dim, hidden_features=hidden,
                                act_layer=act_layer, drop=drop)
 
     def forward(self, x):
@@ -76,7 +75,7 @@ class GFBlock(nn.Module):
         return x
 
 # Patch projector
-class PatchProjector(nn.Module):
+class PatchEmbed(nn.Module):
     """Image to patch embeddings via strided conv."""
     def __init__(self, img_size=256, patch_size=16, in_channels=1, embed_dim=512):
         super().__init__()
@@ -109,7 +108,7 @@ class GFNet(nn.Module):
         norm_layer = norm_layer or partial(nn.LayerNorm, eps=1e-6)
 
         # patch embedding
-        self.patch_embed = PatchProjector(
+        self.patch_embed = PatchEmbed(
             img_size=img_size, patch_size=patch_size,
             in_channels=in_channels, embed_dim=embed_dim
         )
@@ -162,4 +161,3 @@ class GFNet(nn.Module):
         x = self.forward_features(x)
         x = self.head(x)
         return x
-
