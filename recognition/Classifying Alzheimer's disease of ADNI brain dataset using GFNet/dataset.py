@@ -1,5 +1,5 @@
 """
-This script does the preprocessing and loading the data
+This script is used to do the loading and preprocessing the data.
 
 """
 
@@ -13,10 +13,11 @@ from torchvision import datasets, transforms
 from torchvision.utils import make_grid
 
 DEFAULT_IMAGE_SIZE: Tuple[int, int] = (256, 256)
-# Hardcoded mean and standard deviation computed from training set 
-MEAN, STD = 0.1156, 0.2202
 
+# Hardcoded mean and standard deviation computed from training set using utils script
+MEAN, STD = 0.1155, 0.2244
 
+# Resolves data root directory
 def resolve_data_root() -> Path:
     env_root = os.getenv("DATA_ROOT")
     if env_root:
@@ -32,38 +33,41 @@ def resolve_data_root() -> Path:
     if rangpur.exists():
         return rangpur
 
+    # If none found, raises error
     raise FileNotFoundError("DATA_ROOT not found. Set DATA_ROOT env var or ensure the default path exists.")
 
+# Function to perform image transformations
 def build_transforms(image_size: Tuple[int, int] = DEFAULT_IMAGE_SIZE,
                      mean: float = MEAN, std: float = STD,
                      train: bool = True) -> transforms.Compose:
-    """
-    The train includes augmentation, but no augmentation for test
-
-    """
+    """ The train includes augmentation, but no augmentation for test. """
+    # Common transformations
     common = [
         transforms.Resize(image_size),
+        transforms.CenterCrop(image_size),
         transforms.Grayscale(num_output_channels=1),  #1-channel grayscale       
         transforms.ToTensor(),
         transforms.Normalize((mean,), (std,)),
     ]
-
+    # For training set
     if train:
         aug = [
             transforms.RandAugment(num_ops=2),
             transforms.RandomHorizontalFlip(p=0.5),
         ]
         return transforms.Compose(aug + common)
+    # For validation and test sets
     else:
         return transforms.Compose(common)
 
-
+# Helper function to get stratified indices for train/val split
 def _stratified_indices(targets: List[int], train_ratio: float, seed: int = 42):
     rnd = random.Random(seed)
     by_class: Dict[int, List[int]] = {}
     for idx, y in enumerate(targets):
         by_class.setdefault(y, []).append(idx)
 
+    # Splitting
     train_ids, val_ids = [], []
     for y, idxs in by_class.items():
         rnd.shuffle(idxs)
@@ -75,16 +79,17 @@ def _stratified_indices(targets: List[int], train_ratio: float, seed: int = 42):
     rnd.shuffle(val_ids)
     return train_ids, val_ids
 
-
+# Helper function to create ImageFolder dataset with transforms
 def _make_imagefolder(split_dir: Path, train: bool) -> datasets.ImageFolder:
     tfm = build_transforms(train=train)
     return datasets.ImageFolder(root=str(split_dir), transform=tfm)
 
-
+# Main function to create train and validation DataLoaders
 def train_val_loaders(batch_size: int,
                       train_ratio: float = 0.8,
                       num_workers: int = 2,
                       seed: int = 42):
+    """ Creates DataLoaders for training and validation datasets."""
     data_root = resolve_data_root()
     train_dir = data_root / "train"
 
@@ -95,12 +100,12 @@ def train_val_loaders(batch_size: int,
     print(f"Found classes: {base.class_to_idx}")
     print(f"Total images in train directory: {len(base)}")
 
-    # Splits on targets
+    # Splitting dataset
     targets = [y for _, y in base.samples]  
     train_idx, val_idx = _stratified_indices(targets, train_ratio, seed=seed)
-
     train_ds = Subset(base, train_idx)
-    # For validation, we want deterministic transforms so no augmentation done
+
+    # Creating validation dataset with test transforms
     val_base = _make_imagefolder(train_dir, train=False)
     val_ds = Subset(val_base, val_idx)
 
@@ -109,18 +114,16 @@ def train_val_loaders(batch_size: int,
     val_loader = DataLoader(val_ds, batch_size=batch_size,
                             shuffle=False, num_workers=num_workers, pin_memory=True)
 
-    # Print basic info
+    # Printing dataset sizes
     print(f"Number of training images: {len(train_ds)}")
     print(f"Number of validation images: {len(val_ds)}")
     print(f"Training ratio: {train_ratio:.2f} | Validation ratio: {1 - train_ratio:.2f}")
 
     return train_loader, val_loader, base.class_to_idx
 
-
+# Function to create test DataLoader
 def test_loader(batch_size: int, num_workers: int = 2):
-    """
-    Create a test DataLoader from the 'test' split on disk.
-    """
+    """ Creates DataLoader for test dataset."""
     data_root = resolve_data_root()
     test_dir = data_root / "test"
     test_ds = _make_imagefolder(test_dir, train=False)
@@ -128,6 +131,7 @@ def test_loader(batch_size: int, num_workers: int = 2):
     print(f"Found classes: {test_ds.class_to_idx}")
     print(f"Total images in train directory: {len(test_ds)}")
 
+    # Creating DataLoader
     loader = DataLoader(test_ds, batch_size=batch_size,
                         shuffle=False, num_workers=num_workers, pin_memory=True)
 
@@ -136,6 +140,7 @@ def test_loader(batch_size: int, num_workers: int = 2):
     
     return loader, test_ds
 
+# Function to visualize a batch of images from a DataLoader
 def visualize_batch(loader: DataLoader, max_images: int = 32):
     batch = next(iter(loader))[0]  
     if batch.size(0) > max_images:
