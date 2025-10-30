@@ -89,13 +89,13 @@ Both the above results are saved in */content/drive/MyDrive/gfnet_outputs*.
 The GFNet model was trained for 60 epochs on the ADNI dataset using the AdamW optimizer and cross-entropy loss for 1.58 hours on Google Colab A100 GPU.
 The training and validation loss curves show a smooth and consistent downward trend, indicating that the model effectively minimized classification error over time without signs of instability or divergence. The validation loss decreases steadily and remains lower than the training loss toward the end of training, suggesting strong generalization and the absence of overfitting.
 
-![Training Curves](assets/training_and_validation_losses.png)
+![Training Curves](figures/training_and_validation_losses.png)
 
 *Figure 2: Training and validation loss and accuracy curves showing stable convergence of the GFNet model on the ADNI dataset.*  
 
 In the validation accuracy plot, accuracy rises rapidly during the initial epochs (reaching ~80% by epoch 18) and gradually plateaus around 92%, indicating convergence to an optimal representation of the data. This trend demonstrates that the GFNet architecture captured both local and global structural features from the MRI scans.
 
-![Validation Accuracy](validation_accuracies.png)
+![Validation Accuracy](figures/validation_accuracies.png)
 
 *Figure 3: Validation accuracy rising steadily and surpassing the 80% requirement by epoch 18, reaching around 92% at convergence.*  
 
@@ -103,13 +103,13 @@ Confusion Matrix
 
 When evaluated on the held-out ADNI test set, the trained GFNet model achieved a test accuracy of 66.8% with a test loss of 1.068. The confusion matrix indicates that the model correctly classified 2451 AD and 3572 NC samples, while misclassifying 2009 AD images as NC and 984 NC images as AD. The results reveal a noticeable performance gap between validation (92%) and test accuracy (≈67%), suggesting a probability overfitting to the training distribution.
 
-![Confusion Matrix](assets/confusion_matrix.png)
+![Confusion Matrix](figures/confusion_matrix.png)
 
 *Figure 4: Confusion matrix illustrating the distribution of correct and incorrect predictions on the ADNI test set (overall test accuracy ≈ 66.8%).*  
 
 The model was also evaluated qualitatively on four randomly selected test samples. The true and predicted labels were:
 
-![Test Predictions](assets/test_predictions.png)
+![Test Predictions](figures/test_predictions.png)
 
 
 *Figure 5: Randomly selected test samples with their true and predicted labels (AD vs NC), demonstrating correct and misclassified cases.*
