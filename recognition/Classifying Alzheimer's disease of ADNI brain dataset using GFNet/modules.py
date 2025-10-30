@@ -1,3 +1,9 @@
+""""
+This script is used to implement GFNet model components for MRI classification.
+The modules below are adapted from the original GFNet paper R. Gong, J. Liu, S. Jiang, T. Zhang, H. Li, and J. Yan, “Global Filter Networks for Image Classification,” arXiv preprint arXiv:2107.00645, 2021. [Online]. Available: https://github.com/raoyongming/GFNet
+
+"""
+
 import math
 from functools import partial
 import torch
@@ -5,6 +11,7 @@ import torch.nn as nn
 import torch.fft
 from timm.layers import DropPath, trunc_normal_  
 
+# MLP block
 class Mlp(nn.Module):
     """Two-layer MLP with GELU and dropout"""
     def __init__(self, in_features, hidden_features=None, out_features=None,
@@ -12,11 +19,16 @@ class Mlp(nn.Module):
         super().__init__()
         out_features   = out_features   or in_features
         hidden_features = hidden_features or in_features
+        # first layer
         self.fc1 = nn.Linear(in_features, hidden_features)
+        # activation
         self.act = act_layer()
+        # second layer
         self.fc2 = nn.Linear(hidden_features, out_features)
+        # dropout
         self.drop = nn.Dropout(drop)
 
+    # forward pass
     def forward(self, x):
         x = self.fc1(x)
         x = self.act(x)
@@ -26,12 +38,12 @@ class Mlp(nn.Module):
         x = self.drop(x)
         return x
 
-#Global Filter 
+# Global Filter
 class GlobalFilter(nn.Module):
     """Frequency-domain global filter via 2D FFT."""
     def __init__(self, h=14, w=8, dim=1000):
         super().__init__()
-        # learnable complex weights (real, imag) last dim = 2
+        # learnable complex weights for FFT channels
         self.complex_weight = nn.Parameter(
             torch.randn(h, w, dim, 2, dtype=torch.float32) * 0.02
         )
@@ -39,6 +51,7 @@ class GlobalFilter(nn.Module):
         self.h = h
         self.w = w
 
+    # forward pass
     def forward(self, x, spatial_size=None):
         B, N, C = x.shape
         if spatial_size is None:
@@ -56,27 +69,28 @@ class GlobalFilter(nn.Module):
         x = x.reshape(B, N, C)
         return x
 
-# GF Block
+# GFNet Block
 class GFBlock(nn.Module):
     """Norm → GlobalFilter → Norm → MLP (+ DropPath residual)."""
     def __init__(self, dim, mlp_ratio=2., drop=0.5, drop_path=0.6,
                  act_layer=nn.GELU, norm_layer=nn.LayerNorm, h=14, w=8):
         super().__init__()
+        # first norm + global filter
         self.norm1 = norm_layer(dim)
         self.filter = GlobalFilter(dim=dim, h=h, w=w)
+        # second norm + MLP
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         hidden = int(dim * mlp_ratio)
-        self.ffn = MLP(in_features=dim, hidden_features=hidden,
+        self.ffn = Mlp(in_features=dim, hidden_features=hidden,
                                act_layer=act_layer, drop=drop)
-
+    # forward pass
     def forward(self, x):
         x = x + self.drop_path(self.ffn(self.norm2(self.filter(self.norm1(x)))))
         return x
 
-# Patch projector
+# Patch Embedding
 class PatchEmbed(nn.Module):
-    """Image to patch embeddings via strided conv."""
     def __init__(self, img_size=256, patch_size=16, in_channels=1, embed_dim=512):
         super().__init__()
         self.img_size   = (img_size, img_size)
@@ -84,7 +98,8 @@ class PatchEmbed(nn.Module):
         self.num_patches = (img_size // patch_size) ** 2
         self.proj = nn.Conv2d(in_channels, embed_dim,
                               kernel_size=patch_size, stride=patch_size)
-
+        
+    # forward pass
     def forward(self, x):
         B, C, H, W = x.shape
         assert (H, W) == self.img_size, (
@@ -95,10 +110,7 @@ class PatchEmbed(nn.Module):
 
 # GFNet main function
 class GFNet(nn.Module):
-    """
-    GFNet backbone for AD vs NC (2 classes).
-    Assumes 256×256 single-channel input grayscale MRI slices.
-    """
+    """ GFNet model class. """
     def __init__(self, img_size=256, patch_size=16, embed_dim=512, num_classes=2,
                  in_channels=1, drop_rate=0.5, depth=8, mlp_ratio=4.,
                  drop_path_rate=0.15, norm_layer=None):
@@ -120,7 +132,7 @@ class GFNet(nn.Module):
 
         # spatial sizes for FFT filter
         h_tokens = img_size // patch_size
-        w_tokens = h_tokens // 2 + 1  # rfft width
+        w_tokens = h_tokens // 2 + 1  
 
         # per-block drop-path schedule
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]
@@ -137,7 +149,7 @@ class GFNet(nn.Module):
 
         self.apply(self._init_weights)
 
-    # weight init mirrors  =
+    # weight init mirrors timm's implementation
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
@@ -154,7 +166,7 @@ class GFNet(nn.Module):
         x = self.pos_drop(x)
         for blk in self.blocks:
             x = blk(x)
-        x = self.norm(x).mean(1)  # global average over tokens
+        x = self.norm(x).mean(1)  
         return x
 
     def forward(self, x):
