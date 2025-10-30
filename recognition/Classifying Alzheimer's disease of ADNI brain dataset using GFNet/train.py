@@ -1,8 +1,8 @@
 """
 Training, validation and Testing script for the model.
-Uses GFNet from modules.py and data loaders from dataset.py
-"""
+Uses GFNet modules from modules.py and data loaders from dataset.py.
 
+"""
 import os
 import time
 import matplotlib.pyplot as plt
@@ -10,29 +10,31 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 from functools import partial
-from modules import *            
+from modules import *
 from dataset import train_val_loaders, test_loader
 from sklearn import metrics
 from timm.scheduler import create_scheduler
 from types import SimpleNamespace
 
-# hyperparameters
+# Hyperparameters
 batch_size    = 32
-num_epochs   = 10
+num_epochs   = 60
 learning_rate = 0.0005
 
-# setup
+# Setup
 def setup_run():
     """Set device and assets directory (plots, confusion matrix)."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    output_dir = "outputs"
+    output_dir = "/content/drive/MyDrive/gfnet_outputs"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     return device, output_dir
 
-# training
+# Training
 def train_loop(device, output_dir, model, criterion, optimizer, scheduler, loader_train, loader_val):
     print("Training started ...")
+
+    # Starting time  
     start_time = time.time()
 
     model.train()
@@ -45,33 +47,37 @@ def train_loop(device, output_dir, model, criterion, optimizer, scheduler, loade
             inputs, labels = inputs.to(device), labels.to(device)
 
             optimizer.zero_grad()
+
+            # Forward pass
             outputs = model(inputs)
             loss = criterion(outputs, labels)
 
+            # Backpropogation
             loss.backward()
             optimizer.step()
 
             running_loss += loss.item()
 
-        # epoch stats
+        # Epoch stats
         train_loss = running_loss / len(loader_train)
         tr_losses.append(train_loss)
 
-        # validation
-        val_loss, val_acc = validate(device, model, criterion, loader_val)
+        # Validation
+        val_loss, val_acc = validate(device, model, criterion, loader_val)   #eval on validation set
         val_losses.append(val_loss)
         val_accs.append(val_acc)
 
-        # schedule step (timm schedulers expect epoch step)
+        # Schedule step
         scheduler.step(epoch)
 
         print(f"Epoch [{epoch+1}/{num_epochs}] "
               f"Training Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}")
 
+    # Total duration
     dur = time.time() - start_time
     print(f"Training completed in: {dur:.2f} seconds")
 
-    # plots
+    # Plotting loss curves
     plt.figure(figsize=(10, 5))
     plt.plot(tr_losses, label="Training Loss", color='purple')
     plt.plot(val_losses, label="Validation Loss", color='orange')
@@ -85,6 +91,7 @@ def train_loop(device, output_dir, model, criterion, optimizer, scheduler, loade
     plt.show()
     plt.close()
 
+    # Plotting accuracy curves
     plt.figure(figsize=(10, 5))
     plt.plot(val_accs, label="Validation Accuracy", color='green')
     plt.title("Validation Accuracy Plot")
@@ -106,10 +113,12 @@ def validate(device, model, criterion, loader_val):
         for inputs, labels in loader_val:
             inputs, labels = inputs.to(device), labels.to(device)
 
+            # Forward pass
             outputs = model(inputs)
             loss = criterion(outputs, labels)
             val_loss += loss.item()
 
+            # Predictions
             _, preds = torch.max(outputs, 1)
             correct += (preds == labels).sum().item()
             total += labels.size(0)
@@ -119,9 +128,11 @@ def validate(device, model, criterion, loader_val):
     model.train()  # return to train mode for outer loop
     return val_loss, val_acc
 
-# testing
+# Testing
 def test_loop(device, output_dir, model, criterion, loader_test):
     print("Testing Starting ...")
+
+    # Starting time
     start_time = time.time()
 
     model.eval()
@@ -133,6 +144,7 @@ def test_loop(device, output_dir, model, criterion, loader_test):
         for inputs, labels in loader_test:
             inputs, labels = inputs.to(device), labels.to(device)
 
+            # Forward pass
             outputs = model(inputs)
             loss = criterion(outputs, labels)
             test_loss += loss.item()
@@ -147,14 +159,16 @@ def test_loop(device, output_dir, model, criterion, loader_test):
     test_loss /= len(loader_test)
     test_acc = correct / total
 
+    # Total duration
     dur = time.time() - start_time
     print(f"Testing completed in: {dur:.2f} seconds")
     print(f"Testing loss: {test_loss:.4f} | Test accuracy: {test_acc:.4f}")
 
-    # confusion matrix
+    # Confusion matrix
     cm = metrics.confusion_matrix(all_labels, all_preds)
     disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm)
 
+    # Plot and save confusion matrix
     plt.figure(figsize=(7,7))
     disp.plot(cmap="viridis", values_format='d')
     plt.title("Confusion Matrix", fontsize=14, fontweight='bold', pad=10)
@@ -165,16 +179,16 @@ def test_loop(device, output_dir, model, criterion, loader_test):
 
     return test_loss, test_acc
 
-# main
+# Main
 def main():
-    # setup
+    # Setup
     device, output_dir = setup_run()
 
-    # data
-    loader_train, loader_val = train_val_loaders(batch_size=batch_size)
+    # Data loaders
+    loader_train, loader_val, class_to_idx = train_val_loaders(batch_size=batch_size)
     loader_test, _ = test_loader(batch_size=batch_size)
 
-    # model (GFNet from modules.py)
+    # Model initialization
     model = GFNet(
         img_size=256,
         patch_size=16,
@@ -188,10 +202,11 @@ def main():
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
     ).to(device)
 
+    # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
 
-    # scheduler (timm)
+    # Scheduler
     args = SimpleNamespace()
     args.sched = "cosine"
     args.num_epochs = num_epochs
@@ -202,20 +217,17 @@ def main():
 
     scheduler, _ = create_scheduler(args, optimizer)
 
-    # train
+    # Train
     train_loop(device, output_dir, model, criterion, optimizer, scheduler, loader_train, loader_val)
 
     # Making sure a Drive folder exists
     ckpt_dir = "/content/drive/MyDrive/checkpoints_gfnet"
     os.makedirs(ckpt_dir, exist_ok=True)
 
-    # Save the final weights to Drive
+    # Saving the final weights to Drive
     model_save_path = os.path.join(ckpt_dir, "gfnet_last.pth")
     torch.save(model.state_dict(), model_save_path)
     print(f"Model is saved to: {model_save_path}")
-
-    # test after saving
-    test_loop(device, output_dir, model, criterion, loader_test)
 
 if __name__ == "__main__":
     main()
