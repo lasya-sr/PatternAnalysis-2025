@@ -9,9 +9,9 @@ The goal is to automatically detect early signs of Alzheimer’s Disease from st
 
 
 ## Model Architechture
-This project uses  a Global Filter Network (GFNet) architechture designed by the Yongming Rao and other authors [2](). Instead of self-attention, GFNet performs global frequency-domain filtering i.e., features are transformed with a 2-D FFT(Fast Fourier Transform), multiplied element-wise by learnable complex filters one per channel/frequency, and transformed back with an inverse FFT. Stacking these Global Filter (GF) blocks with standard feed-forward layers gives a transformer-style backbone that models global context with near linear complexity in image size, making it a strong fit for medical images.
+A Global Filter Network (GFNet) architechture is used in this project is developed by the Yongming Rao and others authors [2](). Rather than self-attention, GFNet does global frequency-domain filtering i.e., features are convoluted using a 2-D FFT(Fast Fourier Transform) followed by element-wise multiplication with learnable complex filters one channel/frequency, and inverted by an inverse FFT. These Global Filter (GF) blocks can be stacked up with the standard feed-forward layers provide a transformer-like backbone modeling global context with almost linear high level of complexities in image size, and hence a good fit in medical images.
 
-![GFNet Architecture](figures/intro.gif)  
+![GFNet Architecture](figures/intro.jpg)  
 *Figure 1: Overview of the Global Filter Network (GFNet) architecture [3]().*  
 
 
@@ -21,27 +21,25 @@ This project uses  a Global Filter Network (GFNet) architechture designed by the
 - **Feed-Forward Network (FFN)** : per-token MLP + residuals.
 - **Head** : global average pooling to linear classifier.
 
-Each Global Filter (GF) block in the network is composed of several key layers that work together to capture both global and local information. The input image first passes through a patch embedding layer, which divides the MRI into non-overlapping 16×16 patches and linearly projects them into high-dimensional feature tokens. These tokens are then processed by multiple stacked GF blocks, each containing a Layer Normalization layer for stable feature scaling, a Global Filter Layer that performs the frequency-domain filtering operation using FFT/IFFT, and a Feed-Forward Network (FFN) that refines the filtered features through a pair of fully connected layers with non-linear activations. Residual connections around both the filtering and FFN submodules preserve feature flow and prevent gradient vanishing. After all GF blocks, the network applies global average pooling to aggregate the learned representations across spatial locations, followed by a fully connected linear layer and softmax activation to produce the final class probabilities for Alzheimer’s Disease (AD) and Normal Cognition (NC) [3]().
+Each Global Filter (GF) block within the network consists of a segment of major layers that coexist in order to capture global and local information. A patch embedding layer is the first stage in which the input image is subjected to separate the MRI into non-overlapping 16x16 patches, and projection into high-dimensional feature linear tokens. These tokens are then fed through several stacked GF blocks with layer in them. Normalization layer of stable feature scaling, a Global Filter Layer that executes the frequency-domain filtering with FFT/IFFT and a Feed-Forward Network (FFN) which optimizes the filtered features with two non-linear activation fully connected layers. Remnant attachments of the filtering and FFN submodules maintain the flow of features and eliminate the gradient. Once all GF blocks have been used, the network applies global average pooling to combine the learned representations to the spatial locations, and then a fully linked linear layer and a softmax activation to generate the final probabilities of the classes of Alzheimer Disease (AD) and Normal Cognition (NC) [3]().
 
 
 
-### Problem Definition
+## Problem Definition
 Given a 2D MRI image of the human brain, the model predicts whether the scan belongs to an Alzheimer’s patient or a cognitively normal patient.  
-
-### How It Works
-The pipeline consists of three major stages:
+The pipeline consists of following stages:
 
 **1**. **Data Loading & Pre-processing**
-   - The data preprocessing is done when we run the train.py script by calling the dataset.py script.
-   - The training data is split into train (80%), validation (20%), and the test set is used only for final performance testing.
-   - Images are resized to 256×256 and normalized using the hardcoded mean (0.1155) and standard deviation (0.2244) computed from the training set using the utils.py script.
-   - Images were set to greyscale to ensure images were consistent and to reduce computation time.
-   - Data augmentation (random augmentation, random cropping and horizontal flips) is applied only to the training set to improve generalization.
+   - For preprocessing of the data, when we run the train.py script, we call the dataset.py script.
+   - The training data is divided into train (80 percent), validation (20 percent) and the test set is utilized in the specific case of testing the final performance only.
+   - The images are rescaled to 256x256, normalized by using a hardcoded mean (0.1155) and standard deviation (0.2244) of the training images with the help of the utils.py script.
+   - Images were converted to greyscale so that images would have similarities and because it would take less time to compute.
+  - Data augmentation (random augmentation, random cropping and horizontal flips) is also used exclusively on the training set to enhance generalization.
 
 **2**. **Model Architecture**
-   - The modules.py script defines the Global Filter Network (GFNet) architecture used for Alzheimer’s Disease classification. 
-   - It includes the patch embedding layer that converts MRI images into tokens, multiple Global Filter Blocks that perform frequency-domain filtering and feature refinement, and the final classification head. 
-   - The script also implements supporting components such as LayerNorm, DropPath, and a two-layer MLP with GELU activation and dropout. Together, these modules enable the model to efficiently capture global spatial relationships in MRI scans.
+   - The script modules.py outlines the architecture of the Global Filter Network (GFNet) to classify the Alzheimer Disease.
+   - It has the patch embedding layer, which transforms MRI images into tokens, a series of Global Filter Blocks, which do frequency-domain filtering and feature refinements, and the last classification head.
+   - Supporting elements like LayerNorm, DropPath and two-layer MLP with GELU activation and dropout are also implemented in the script. Through these, all these modules allow the model to effectively represent the global spatial relationship in MRI scans.
 
 
 **3**. **Training & Evaluation**
@@ -55,12 +53,12 @@ This project was implemented and evaluated on Google Colab Pro using the followi
 - Python: 3.x
 - matplotlib: 3.8.2
 - numpy: 2.1.4 
-- scikit_learn==1.4.2
+- scikit_learn: 1.4.2
 - timm: 1.0.11
 - torch: 2.2.2+cu121
 - torchvision: 0.17.2
 
-GPU type (T4/A100) and CUDA (12.x) were provided by Colab at run time.
+NVIDIA (A100 GPU) and CUDA (12.x) were provided by Colab Colab Pro at run time.
 
 ## Dataset 
 ADNI MRI dataset is mounted from Google Drive in Colab. Directory structure of the dataset is as follows:
@@ -128,7 +126,7 @@ In the validation accuracy plot, accuracy rises rapidly during the initial epoch
 
 When evaluated on the held-out ADNI test set, the trained GFNet model achieved a **test accuracy of 66.8% with a test loss of 1.068**. The confusion matrix indicates that the model correctly classified 2451 AD and 3572 NC samples, while misclassifying 2009 AD images as NC and 984 NC images as AD. The results reveal a noticeable performance gap between validation (92%) and test accuracy (~67%), suggesting a probability of overfitting to the training distribution.
 
-Several strategies were implemented to improve model accuracy, including data augmentation (flips, rotations, and normalization), hyperparameter tuning (varying learning rates, optimizers, and batch sizes). Regularization techniques such as dropout and weight decay, along with early stopping, were also applied to stabilize training and reduce overfitting. Despite these efforts, the model’s validation accuracy plateaued at 66.8%.
+Various measures were used to increase the accuracy of the models, such as data augmentation (flips, rotations and normalization), hyperparameter optimization (different learning rates, optimizers and batch sizes). The use of regularization methods like dropout and weight decay, increasing number of epochs, early stopping were also used to stabilize the training process and alleviate overfitting. The model, however, stopped at 66.8 percent validation accuracy.
 
 ![Confusion Matrix](figures/confusion_matrix.png)
 
@@ -142,11 +140,10 @@ The model was also evaluated qualitatively on four randomly selected test sample
 
 *Figure 5: Randomly selected test samples with their true and predicted labels (AD vs NC), showing correct and misclassified cases.*
 
-Out of the four samples, the model correctly classified two images and misclassified two. The errors occurred where the MRI features of Alzheimer’s Disease (AD) and Normal Cognition (NC) appeared visually similar, indicating that the model can sometimes confuse subtle structural differences between diseased and healthy brains. Despite these isolated misclassifications, the predictions show that GFNet captures meaningful anatomical patterns and can generalize reasonably well to unseen scans.
 
 ## Conclusion
-The results demonstrate that the Global Filter Network (GFNet) achieved a relatively high success rate in correctly classifying Alzheimer’s Disease and Normal Cognition from MRI scans, with strong training and validation performance. However, there remains room for improvement in generalization to unseen test data. Increasing the model depth or the embedding dimension could potentially enhance the network’s capacity to capture more complex spatial relationships in brain structures, though this would come at the cost of longer training time and higher computational requirements.
-Future work could also explore GFNet variants or hybrid architectures, such as CNNstyle hierarchical models or transformer filter hybrids, which might better capture local and global dependencies in MRI data. Incorporating larger and more diverse datasets, balanced sampling, and advanced regularization or domain adaptation techniques may further improve test performance and model robustness across different imaging conditions.
+The findings show that the Global Filter Network (GFNet) performed fairly well in accurately classifying Alzheimer Disease and Normal Cognition on the basis of MRI scan, with high training and validation scores. However, generalization to unseen test data could be improved. An additional increase in model depth or the embedding dimension may have the benefit of improving the ability of the network to capture more complicated spatial relationships within brain structures, but would require longer training and higher computational costs. Future works would also seek to explore variants of GFNet or hybrid architectures (e.g. CNNstyle hierarchical models or transformer filter hybrids), which may be more successful at learning local and global dependencies in MRI data. The utilization of larger and more heterogeneous datasets, balanced sampling, enhanced regularization or domain adaptation could also enhance better tests and model robustness to various images.
+
 
 ## References
 [1] Alzheimer’s Association, “What is Alzheimer’s Disease?,” Alzheimer’s Association, 2025. [Online]. Available: https://www.alz.org/alzheimers-dementia/what-is-alzheimers
