@@ -46,13 +46,21 @@ The pipeline consists of three major stages:
 
 **3**. **Training & Evaluation**
    - The model is trained using Cross-Entropy Loss and optimized with AdamW optimizer using train.py script.
-   - The trained model is evaluated on a held-out test set, and predictions are visualized with class probabilities and confusion matrix using predict.py script.
+   - The trained model is evaluated on a held-out test set, and predictions are visualized with class predictions and confusion matrix using predict.py script.
 
 ## Requirements
 
+This project was implemented and evaluated on Google Colab Pro using the following key packages:  
 
+- Python: 3.x
+- matplotlib: 3.8.2
+- numpy: 2.1.4 
+- scikit_learn==1.4.2
+- timm: 1.0.11
+- torch: 2.2.2+cu121
+- torchvision: 0.17.2
 
-
+GPU type (T4/A100) and CUDA (12.x) were provided by Colab at run time.
 
 ## Dataset 
 ADNI MRI dataset is mounted from Google Drive in Colab. Directory structure of the dataset is as follows:
@@ -65,8 +73,23 @@ AD_NC/
       ├── AD/
       └── NC/
 ```
+### Hyperparameters used in the model:
+
+        img_size=256,
+        patch_size= 16,
+        embed_dim=512,
+        num_classes=2,
+        in_channels=1,
+        drop_rate=0.5,
+        depth=19,
+        mlp_ratio=4.,
+        drop_path_rate=0.25,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6)
 
 ## Usage Examples
+
+This project includes a path reference for the UQ Rangpur HPC cluster inside the dataset.py file which was was added only to ensure that the code can automatically locate the dataset if executed on Rangpur. However, this project was trained and tested entirely on Google Colab Pro, and no experiments were run on the Rangpur cluster. The code defaults to the Google Drive dataset path: /content/drive/MyDrive/ADNI/AD_NC
+
 
 ### Training
 Run the train.py script on the google colab:
@@ -86,33 +109,38 @@ Both the above results are saved in */content/drive/MyDrive/gfnet_outputs*.
 
 **Training and Validation Curves**
 
-The GFNet model was trained for 60 epochs on the ADNI dataset using the AdamW optimizer and cross-entropy loss for 1.58 hours on Google Colab A100 GPU.
+The GFNet model was trained for 60 epochs on the ADNI dataset using the AdamW optimizer and cross-entropy loss for 1.58 hours on Google Colab Pro A100 GPU.
 The training and validation loss curves show a smooth and consistent downward trend, indicating that the model effectively minimized classification error over time without signs of instability or divergence. The validation loss decreases steadily and remains lower than the training loss toward the end of training, suggesting strong generalization and the absence of overfitting.
 
 ![Training Curves](figures/training_and_validation_losses.png)
 
-*Figure 2: Training and validation loss and accuracy curves showing stable convergence of the GFNet model on the ADNI dataset.*  
+*Figure 2: Training and validation loss and accuracy curves.*  
+
+**Validation Accuracy Plot**
 
 In the validation accuracy plot, accuracy rises rapidly during the initial epochs (reaching ~80% by epoch 18) and gradually plateaus around 92%, indicating convergence to an optimal representation of the data. This trend demonstrates that the GFNet architecture captured both local and global structural features from the MRI scans.
 
 ![Validation Accuracy](figures/validation_accuracies.png)
 
-*Figure 3: Validation accuracy rising steadily and surpassing the 80% requirement by epoch 18, reaching around 92% at convergence.*  
+*Figure 3: Validation accuracy rising steadily and reaching 80% by epoch 18 and reaching around 92% at convergence.*  
 
-Confusion Matrix
+**Confusion Matrix**
 
-When evaluated on the held-out ADNI test set, the trained GFNet model achieved a test accuracy of 66.8% with a test loss of 1.068. The confusion matrix indicates that the model correctly classified 2451 AD and 3572 NC samples, while misclassifying 2009 AD images as NC and 984 NC images as AD. The results reveal a noticeable performance gap between validation (92%) and test accuracy (≈67%), suggesting a probability overfitting to the training distribution.
+When evaluated on the held-out ADNI test set, the trained GFNet model achieved a **test accuracy of 66.8% with a test loss of 1.068**. The confusion matrix indicates that the model correctly classified 2451 AD and 3572 NC samples, while misclassifying 2009 AD images as NC and 984 NC images as AD. The results reveal a noticeable performance gap between validation (92%) and test accuracy (~67%), suggesting a probability of overfitting to the training distribution.
+
+Several strategies were implemented to improve model accuracy, including data augmentation (flips, rotations, and normalization), hyperparameter tuning (varying learning rates, optimizers, and batch sizes). Regularization techniques such as dropout and weight decay, along with early stopping, were also applied to stabilize training and reduce overfitting. Despite these efforts, the model’s validation accuracy plateaued at 66.8%.
 
 ![Confusion Matrix](figures/confusion_matrix.png)
 
-*Figure 4: Confusion matrix illustrating the distribution of correct and incorrect predictions on the ADNI test set (overall test accuracy ≈ 66.8%).*  
+*Figure 4: Confusion matrix illustrating the distribution of correct and incorrect predictions on the ADNI test set.*  
+
+**Test Predictions**
 
 The model was also evaluated qualitatively on four randomly selected test samples. The true and predicted labels were:
 
 ![Test Predictions](figures/test_predictions.png)
 
-
-*Figure 5: Randomly selected test samples with their true and predicted labels (AD vs NC), demonstrating correct and misclassified cases.*
+*Figure 5: Randomly selected test samples with their true and predicted labels (AD vs NC), showing correct and misclassified cases.*
 
 Out of the four samples, the model correctly classified two images and misclassified two. The errors occurred where the MRI features of Alzheimer’s Disease (AD) and Normal Cognition (NC) appeared visually similar, indicating that the model can sometimes confuse subtle structural differences between diseased and healthy brains. Despite these isolated misclassifications, the predictions show that GFNet captures meaningful anatomical patterns and can generalize reasonably well to unseen scans.
 
@@ -131,6 +159,12 @@ https://ieeexplore.ieee.org/document/10091201?denied=
 
 [3] R. Gong, J. Liu, S. Jiang, T. Zhang, H. Li, and J. Yan, “Global Filter Networks for Image Classification,” arXiv preprint arXiv:2107.00645, 2021. [Online]. Available: https://github.com/raoyongming/GFNet
 
+#### AI Acknowledgement
 
+ChatGPT (OpenAI, GPT-5, 2025) was used for language editing, report structuring, and generating Markdown (.md) syntax. All coding, analysis, and interpretation were independently performed by the author.
 
+### Submitted By
+---
+**Name:**  *Lasya Sahadeva Reddy*
 
+**Student ID**: *47336991*
